@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: ai-photo-automation
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: npm run install:all && npm run build:frontend
+    startCommand: npm run start:backend
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: QWEN_API_KEY
+        sync: false
+      - key: QWEN_MODEL
+        value: qwen-vl-max-latest
+      - key: DOUBAO_API_KEY
+        sync: false
+      - key: DOUBAO_ENDPOINT
+        value: https://ark.cn-beijing.volces.com/api/v3

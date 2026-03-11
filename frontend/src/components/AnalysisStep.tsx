@@ -124,7 +124,7 @@ const AnalysisStep: React.FC<AnalysisStepProps> = ({ onPromptGenerated }) => {
               color: 'rgba(255, 255, 255, 0.55)',
               lineHeight: 1.5,
             }}>
-              💡 参考图用于提取色调、饱和度、对比度、曝光、滤镜等视觉风格
+              💡 参考图用于提供场景模板（构图、姿势、场景布局、风格）
             </Paragraph>
           </div>
           

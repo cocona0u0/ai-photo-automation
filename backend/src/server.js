@@ -1,9 +1,14 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import apiRouter from './routes/api.js';
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,17 +27,13 @@ app.use((req, res, next) => {
 // API路由
 app.use('/api', apiRouter);
 
-// 根路径
-app.get('/', (req, res) => {
-  res.json({
-    message: 'AI图像分析与生成服务',
-    version: '1.0.0',
-    endpoints: {
-      analyze: 'POST /api/analyze',
-      generate: 'POST /api/generate',
-      health: 'GET /api/health'
-    }
-  });
+// 提供前端静态文件
+const frontendDist = path.join(__dirname, '../../frontend/dist');
+app.use(express.static(frontendDist));
+
+// 所有其他请求返回前端 index.html（支持前端路由）
+app.get('*', (req, res) => {
+  res.sendFile(path.join(frontendDist, 'index.html'));
 });
 
 // 错误处理中间件

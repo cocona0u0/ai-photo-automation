@@ -184,72 +184,82 @@ const App: React.FC = () => {
         boxShadow: '0 1px 0 rgba(255, 255, 255, 0.05)',
         border: 'none',
         borderBottom: '0.5px solid rgba(255, 255, 255, 0.08)',
+        height: 56,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}>
         <Title 
-          level={2} 
+          level={3} 
           style={{ 
             color: '#ffffff', 
-            margin: '16px 0',
+            margin: 0,
             textAlign: 'center',
             fontWeight: 600,
             letterSpacing: '-0.5px',
-            fontSize: 28,
+            fontSize: 20,
           }}
         >
-          AI图像分析与生成
+          AI写真自动化
         </Title>
       </Header>
 
       <Content style={{ 
-        padding: '32px 24px',
+        padding: '16px 24px',
         maxWidth: 1600,
         margin: '0 auto',
         width: '100%'
       }}>
-        <div style={{ marginBottom: 24, textAlign: 'center' }}>
+        <div style={{ marginBottom: 12, textAlign: 'center' }}>
           <Text style={{ 
-            fontSize: 13,
+            fontSize: 12,
             color: 'rgba(255, 255, 255, 0.5)',
             display: 'block',
             fontWeight: 400,
             letterSpacing: '-0.2px',
           }}>
-            左侧上传输入图片，右侧自动生成效果图
+            上传参考图提取风格，上传用户图自动生成效果图
           </Text>
         </div>
 
-        <Row gutter={24}>
+        <Row gutter={16}>
           {/* 左侧：输入区域 */}
           <Col xs={24} lg={10}>
-            <Space direction="vertical" style={{ width: '100%' }} size="large">
+            <Space direction="vertical" style={{ width: '100%' }} size="small">
               {/* 参考图区域 */}
               <Card
                 title={
                   <Space>
                     <ThunderboltOutlined style={{ color: '#0a84ff' }} />
-                    <span style={{ color: '#ffffff', fontSize: 15, fontWeight: 600 }}>
+                    <span style={{ color: '#ffffff', fontSize: 14, fontWeight: 600 }}>
                       参考图（风格）
                     </span>
+                    {analyzing && (
+                      <span style={{ marginLeft: 8, color: '#0a84ff', fontSize: 12 }}>
+                        <span className="loading-spinner" style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid rgba(10, 132, 255, 0.3)', borderTop: '2px solid #0a84ff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></span>
+                        <span style={{ marginLeft: 6 }}>正在分析...</span>
+                      </span>
+                    )}
                   </Space>
                 }
                 style={{
                   background: 'rgba(28, 28, 30, 0.6)',
                   backdropFilter: 'blur(20px)',
                   border: '0.5px solid rgba(255, 255, 255, 0.1)',
-                  borderRadius: 16,
+                  borderRadius: 12,
                 }}
                 styles={{
-                  header: { borderBottom: '0.5px solid rgba(255, 255, 255, 0.08)', padding: '16px 24px' },
-                  body: { padding: 24 }
+                  header: { borderBottom: '0.5px solid rgba(255, 255, 255, 0.08)', padding: '12px 16px' },
+                  body: { padding: 16 }
                 }}
               >
-                <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                <Space direction="vertical" style={{ width: '100%' }} size="small">
                   {!refPreviewUrl ? (
                     <ImageUpload onFileChange={handleRefImageChange} disabled={analyzing} />
                   ) : (
                     <div>
-                      <div style={{ textAlign: 'center', marginBottom: 12 }}>
-                        <img src={refPreviewUrl} alt="参考图" style={{ maxWidth: '100%', maxHeight: 250, borderRadius: 8 }} />
+                      <div style={{ textAlign: 'center', marginBottom: 8 }}>
+                        <img src={refPreviewUrl} alt="参考图" style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 8 }} />
                       </div>
                       <button
                         onClick={() => { setRefImageFile(null); setRefPreviewUrl(''); setPrompt(''); }}
@@ -259,9 +269,9 @@ const App: React.FC = () => {
                           background: 'rgba(28, 28, 30, 0.6)',
                           border: '0.5px solid rgba(255, 255, 255, 0.2)',
                           borderRadius: 8,
-                          padding: '8px',
+                          padding: '6px',
                           color: 'rgba(255, 255, 255, 0.85)',
-                          fontSize: 13,
+                          fontSize: 12,
                           cursor: analyzing ? 'not-allowed' : 'pointer',
                         }}
                       >
@@ -269,10 +279,9 @@ const App: React.FC = () => {
                       </button>
                     </div>
                   )}
-                  {analyzing && <LoadingSpinner tip="正在分析风格..." />}
                   {prompt && (
-                    <div style={{ padding: 6, background: 'rgba(48, 209, 88, 0.1)', borderRadius: 6, textAlign: 'center' }}>
-                      <Text style={{ fontSize: 12, color: 'rgba(48, 209, 88, 0.9)', fontWeight: 600 }}>
+                    <div style={{ padding: 4, background: 'rgba(48, 209, 88, 0.1)', borderRadius: 6, textAlign: 'center' }}>
+                      <Text style={{ fontSize: 11, color: 'rgba(48, 209, 88, 0.9)', fontWeight: 600 }}>
                         ✓ 风格分析完成
                       </Text>
                     </div>
@@ -285,8 +294,8 @@ const App: React.FC = () => {
                 title={
                   <Space>
                     <PictureOutlined style={{ color: '#30d158' }} />
-                    <span style={{ color: '#ffffff', fontSize: 15, fontWeight: 600 }}>
-                      用户图（内容）
+                    <span style={{ color: '#ffffff', fontSize: 14, fontWeight: 600 }}>
+                      用户图（人物主体）
                     </span>
                   </Space>
                 }
@@ -306,8 +315,8 @@ const App: React.FC = () => {
                     <ImageUpload onFileChange={handleUserImageChange} disabled={generating} />
                   ) : (
                     <div>
-                      <div style={{ textAlign: 'center', marginBottom: 12 }}>
-                        <img src={userPreviewUrl} alt="用户图" style={{ maxWidth: '100%', maxHeight: 250, borderRadius: 8 }} />
+                      <div style={{ textAlign: 'center', marginBottom: 8 }}>
+                        <img src={userPreviewUrl} alt="用户图" style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 8 }} />
                       </div>
                       <button
                         onClick={() => { setUserImageFile(null); setUserPreviewUrl(''); setGeneratedImageUrls([]); }}
@@ -328,7 +337,7 @@ const App: React.FC = () => {
                     </div>
                   )}
                   {!prompt && !analyzing && (
-                    <Alert message="请先上传参考图并完成风格分析" type="info" showIcon style={{ fontSize: 12 }} />
+                    <Alert message="请先上传参考图并完成风格分析" type="info" showIcon style={{ fontSize: 11 }} />
                   )}
                   {analyzing && userImageFile && (
                     <Alert 
@@ -336,7 +345,7 @@ const App: React.FC = () => {
                       description="分析完成后将自动生成图片" 
                       type="info" 
                       showIcon 
-                      style={{ fontSize: 12 }} 
+                      style={{ fontSize: 11 }} 
                     />
                   )}
                 </Space>
@@ -349,9 +358,17 @@ const App: React.FC = () => {
             <Card
               title={
                 <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#ffffff', fontSize: 15, fontWeight: 600 }}>
-                    生成结果{generatedImageUrls.length > 0 && `（${generatedImageUrls.length}张）`}
-                  </span>
+                  <Space>
+                    <span style={{ color: '#ffffff', fontSize: 14, fontWeight: 600 }}>
+                      生成结果{generatedImageUrls.length > 0 && `（${generatedImageUrls.length}张）`}
+                    </span>
+                    {generating && (
+                      <span style={{ marginLeft: 8, color: '#0a84ff', fontSize: 12 }}>
+                        <span className="loading-spinner" style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid rgba(10, 132, 255, 0.3)', borderTop: '2px solid #0a84ff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></span>
+                        <span style={{ marginLeft: 6 }}>正在生成...</span>
+                      </span>
+                    )}
+                  </Space>
                   {generatedImageUrls.length > 0 && (
                     <button
                       onClick={handleRegenerate}
@@ -360,9 +377,9 @@ const App: React.FC = () => {
                         background: generating ? 'rgba(84, 84, 88, 0.4)' : 'rgba(10, 132, 255, 0.9)',
                         border: 'none',
                         borderRadius: 8,
-                        padding: '8px 16px',
+                        padding: '6px 12px',
                         color: 'white',
-                        fontSize: 14,
+                        fontSize: 12,
                         fontWeight: 600,
                         cursor: generating ? 'not-allowed' : 'pointer',
                       }}
@@ -376,29 +393,27 @@ const App: React.FC = () => {
                 background: 'rgba(28, 28, 30, 0.6)',
                 backdropFilter: 'blur(20px)',
                 border: '0.5px solid rgba(255, 255, 255, 0.1)',
-                borderRadius: 16,
-                minHeight: 600,
+                borderRadius: 12,
+                minHeight: 400,
               }}
               styles={{
-                header: { borderBottom: '0.5px solid rgba(255, 255, 255, 0.08)', padding: '16px 24px' },
-                body: { padding: 24 }
+                header: { borderBottom: '0.5px solid rgba(255, 255, 255, 0.08)', padding: '12px 16px' },
+                body: { padding: 16 }
               }}
             >
-              {generating && <LoadingSpinner tip="正在生成图片..." />}
-              
               {generateError && (
                 <Alert message="生成失败" description={generateError} type="error" showIcon closable onClose={() => setGenerateError('')} />
               )}
 
               {generatedImageUrls.length === 0 && !generating && (
-                <div style={{ textAlign: 'center', padding: 60, color: 'rgba(255, 255, 255, 0.4)' }}>
-                  <PictureOutlined style={{ fontSize: 48, marginBottom: 16 }} />
-                  <p>上传参考图和用户图后，生成结果将在这里显示</p>
+                <div style={{ textAlign: 'center', padding: 40, color: 'rgba(255, 255, 255, 0.4)' }}>
+                  <PictureOutlined style={{ fontSize: 40, marginBottom: 12 }} />
+                  <p style={{ fontSize: 13, margin: 0 }}>上传参考图和用户图后，生成结果将在这里显示</p>
                 </div>
               )}
 
               {generatedImageUrls.length > 0 && (
-                <Row gutter={[16, 16]}>
+                <Row gutter={[12, 12]}>
                   {generatedImageUrls.map((url, index) => (
                     <Col xs={24} sm={12} md={8} key={index}>
                       <div style={{ position: 'relative', background: 'rgba(0, 0, 0, 0.2)', borderRadius: 12, padding: 12 }}>
@@ -428,7 +443,7 @@ const App: React.FC = () => {
           <Collapse 
             defaultActiveKey={[]} 
             style={{
-              marginTop: 24,
+              marginTop: 16,
               background: 'rgba(28, 28, 30, 0.6)',
               backdropFilter: 'blur(20px)',
               border: '0.5px solid rgba(255, 255, 255, 0.1)',
@@ -436,11 +451,34 @@ const App: React.FC = () => {
             }}
           >
             <Panel 
-              header={<span style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: 14 }}>📝 风格分析详情（点击展开/收起）</span>}
+              header={
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                  <span style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: 13 }}>📝 风格分析详情</span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigator.clipboard.writeText(prompt);
+                      message.success('Prompt已复制到剪贴板');
+                    }}
+                    style={{
+                      background: 'rgba(10, 132, 255, 0.9)',
+                      border: 'none',
+                      borderRadius: 6,
+                      padding: '4px 12px',
+                      color: 'white',
+                      fontSize: 12,
+                      cursor: 'pointer',
+                      fontWeight: 500,
+                    }}
+                  >
+                    一键复制Prompt
+                  </button>
+                </div>
+              }
               key="1"
             >
-              <div style={{ background: 'rgba(44, 44, 46, 0.6)', borderRadius: 8, padding: 16, maxHeight: 200, overflowY: 'auto' }}>
-                <Paragraph style={{ margin: 0, whiteSpace: 'pre-wrap', color: 'rgba(255, 255, 255, 0.7)', fontSize: 13 }}>
+              <div style={{ background: 'rgba(44, 44, 46, 0.6)', borderRadius: 8, padding: 12, maxHeight: 150, overflowY: 'auto' }}>
+                <Paragraph style={{ margin: 0, whiteSpace: 'pre-wrap', color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, lineHeight: 1.5 }}>
                   {prompt}
                 </Paragraph>
               </div>
@@ -449,9 +487,9 @@ const App: React.FC = () => {
         )}
       </Content>
 
-      <Footer style={{ textAlign: 'center', background: 'transparent', borderTop: '0.5px solid rgba(255, 255, 255, 0.08)', padding: '24px 0' }}>
-        <Text style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: 13 }}>
-          AI图像分析与生成工具 © 2026
+      <Footer style={{ textAlign: 'center', background: 'transparent', borderTop: '0.5px solid rgba(255, 255, 255, 0.08)', padding: '12px 0' }}>
+        <Text style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: 11 }}>
+          AI写真自动化©2026 快影模板设计组
         </Text>
       </Footer>
     </Layout>
