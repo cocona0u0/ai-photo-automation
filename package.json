@@ -2,7 +2,7 @@
   "name": "ai-photo-automation",
   "version": "1.0.0",
   "scripts": {
-    "install:all": "cd backend && npm install && cd ../frontend && npm install",
+    "install:all": "cd backend && npm install && cd ../frontend && npm install --include=dev",
     "build:frontend": "cd frontend && npm run build",
     "start:backend": "cd backend && npm start",
     "start:all": "npm run install:all && npm run build:frontend && npm run start:backend"
