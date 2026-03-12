@@ -1,7 +1,9 @@
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
+import axios from 'axios';
 import { analyzeImage } from '../services/qwenService.js';
 import { generateImage } from '../services/seedreamService.js';
 
@@ -120,6 +122,110 @@ router.post('/generate', upload.single('image'), async (req, res) => {
 
   } catch (error) {
     console.error('生成图片接口错误:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/analyze-url
+ * 通过图片URL分析图片并生成prompt（供 Luigi/Kim 机器人调用）
+ */
+router.post('/analyze-url', async (req, res) => {
+  try {
+    const { imageUrl } = req.body;
+    if (!imageUrl) {
+      return res.status(400).json({
+        success: false,
+        error: '请提供imageUrl参数'
+      });
+    }
+
+    console.log('开始通过URL分析图片:', imageUrl);
+
+    // 下载图片到临时文件
+    const response = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 30000 });
+    const ext = imageUrl.split('?')[0].split('.').pop()?.toLowerCase() || 'jpg';
+    const allowedExts = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+    const safeExt = allowedExts.includes(ext) ? ext : 'jpg';
+    const tmpPath = path.join(__dirname, '../../uploads', `tmp-${Date.now()}.${safeExt}`);
+    await fs.promises.writeFile(tmpPath, response.data);
+
+    const result = await analyzeImage(tmpPath);
+
+    // 清理临时文件
+    fs.promises.unlink(tmpPath).catch(() => {});
+
+    if (!result.success) {
+      return res.status(500).json({
+        success: false,
+        error: result.error || '图片分析失败'
+      });
+    }
+
+    console.log('图片分析成功(URL方式),prompt长度:', result.prompt.length);
+    res.json({
+      success: true,
+      prompt: result.prompt,
+      tokens: result.tokens
+    });
+
+  } catch (error) {
+    console.error('analyze-url接口错误:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/generate-url
+ * 通过图片URL生成新图片（供 Luigi/Kim 机器人调用）
+ */
+router.post('/generate-url', async (req, res) => {
+  try {
+    const { imageUrl, prompt } = req.body;
+    if (!imageUrl) {
+      return res.status(400).json({ success: false, error: '请提供imageUrl参数' });
+    }
+    if (!prompt) {
+      return res.status(400).json({ success: false, error: '请提供prompt参数' });
+    }
+
+    console.log('开始通过URL生成图片, 参考图:', imageUrl);
+
+    // 下载图片到临时文件
+    const imgResponse = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 30000 });
+    const ext = imageUrl.split('?')[0].split('.').pop()?.toLowerCase() || 'jpg';
+    const allowedExts = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+    const safeExt = allowedExts.includes(ext) ? ext : 'jpg';
+    const tmpPath = path.join(__dirname, '../../uploads', `tmp-${Date.now()}.${safeExt}`);
+    await fs.promises.writeFile(tmpPath, imgResponse.data);
+
+    const result = await generateImage(tmpPath, prompt, 1);
+
+    // 清理临时文件
+    fs.promises.unlink(tmpPath).catch(() => {});
+
+    if (!result.success) {
+      return res.status(500).json({
+        success: false,
+        error: result.error || '图片生成失败'
+      });
+    }
+
+    console.log('图片生成成功(URL方式):', result.imageUrls[0]);
+    res.json({
+      success: true,
+      imageUrl: result.imageUrls[0],
+      imageUrls: result.imageUrls
+    });
+
+  } catch (error) {
+    console.error('generate-url接口错误:', error);
     res.status(500).json({
       success: false,
       error: error.message
