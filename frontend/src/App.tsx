@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Layout, Typography, Row, Col, Card, Space, Collapse, Image, message, Alert } from 'antd';
-import { ThunderboltOutlined, PictureOutlined, DownloadOutlined } from '@ant-design/icons';
+import { Layout, Typography, Row, Col, Card, Space, Collapse, Image, message, Alert, Modal, Progress } from 'antd';
+import { ThunderboltOutlined, PictureOutlined, DownloadOutlined, CloudUploadOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import ImageUpload from './components/ImageUpload';
 import LoadingSpinner from './components/LoadingSpinner';
 import { analyzeImage, generateImage } from './services/api';
@@ -24,6 +24,47 @@ const App: React.FC = () => {
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string>('');
   const [generatedImageUrls, setGeneratedImageUrls] = useState<string[]>([]);
+
+  // 发布快影模板相关状态
+  const [publishModalVisible, setPublishModalVisible] = useState(false);
+  const [publishProgress, setPublishProgress] = useState(0);
+  const [publishStatus, setPublishStatus] = useState<'uploading' | 'success' | 'idle'>('idle');
+
+  // 模拟发布快影模板
+  const handlePublishToKuaiying = () => {
+    if (generatedImageUrls.length === 0) {
+      message.warning('请先生成效果图后再发布');
+      return;
+    }
+
+    setPublishModalVisible(true);
+    setPublishProgress(0);
+    setPublishStatus('uploading');
+
+    // 模拟上传进度
+    let progress = 0;
+    const timer = setInterval(() => {
+      progress += Math.random() * 15 + 10;
+      if (progress >= 100) {
+        progress = 100;
+        clearInterval(timer);
+        setPublishProgress(100);
+        setTimeout(() => {
+          setPublishStatus('success');
+        }, 500);
+      } else {
+        setPublishProgress(Math.floor(progress));
+      }
+    }, 400);
+  };
+
+  const handleClosePublishModal = () => {
+    setPublishModalVisible(false);
+    setTimeout(() => {
+      setPublishStatus('idle');
+      setPublishProgress(0);
+    }, 300);
+  };
 
   // 处理参考图上传
   const handleRefImageChange = (file: File | null) => {
@@ -413,79 +454,198 @@ const App: React.FC = () => {
               )}
 
               {generatedImageUrls.length > 0 && (
-                <Row gutter={[12, 12]}>
-                  {generatedImageUrls.map((url, index) => (
-                    <Col xs={24} sm={12} md={8} key={index}>
-                      <div style={{ position: 'relative', background: 'rgba(0, 0, 0, 0.2)', borderRadius: 12, padding: 12 }}>
-                        <div style={{ position: 'absolute', top: 8, left: 8, zIndex: 10, background: 'rgba(0, 0, 0, 0.6)', borderRadius: 6, padding: '4px 8px' }}>
-                          <span style={{ color: 'white', fontSize: 12, fontWeight: 600 }}>#{index + 1}</span>
+                <>
+                  <Row gutter={[8, 8]}>
+                    {generatedImageUrls.map((url, index) => (
+                      <Col xs={12} sm={8} md={6} key={index}>
+                        <div style={{ position: 'relative', background: 'rgba(0, 0, 0, 0.2)', borderRadius: 8, padding: 8 }}>
+                          <div style={{ position: 'absolute', top: 6, left: 6, zIndex: 10, background: 'rgba(0, 0, 0, 0.6)', borderRadius: 4, padding: '2px 6px' }}>
+                            <span style={{ color: 'white', fontSize: 10, fontWeight: 600 }}>#{index + 1}</span>
+                          </div>
+                          <div style={{ position: 'absolute', top: 6, right: 6, zIndex: 10 }}>
+                            <button
+                              onClick={() => handleDownload(url, index)}
+                              style={{ background: 'rgba(48, 209, 88, 0.9)', border: 'none', borderRadius: 4, padding: '4px 8px', color: 'white', fontSize: 10, cursor: 'pointer' }}
+                            >
+                              <DownloadOutlined style={{ fontSize: 10 }} /> 下载
+                            </button>
+                          </div>
+                          <Image src={url} alt={`生成图片 ${index + 1}`} style={{ width: '100%', borderRadius: 6 }} preview={{ mask: '查看大图' }} />
                         </div>
-                        <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 10 }}>
-                          <button
-                            onClick={() => handleDownload(url, index)}
-                            style={{ background: 'rgba(48, 209, 88, 0.9)', border: 'none', borderRadius: 6, padding: '6px 12px', color: 'white', fontSize: 12, cursor: 'pointer' }}
-                          >
-                            <DownloadOutlined /> 下载
-                          </button>
+                      </Col>
+                    ))}
+                  </Row>
+
+                  {/* Prompt 详情 - 放在生成结果下方 */}
+                  {prompt && (
+                    <Collapse 
+                      defaultActiveKey={['1']}
+                      style={{
+                        marginTop: 16,
+                        background: 'rgba(28, 28, 30, 0.6)',
+                        backdropFilter: 'blur(20px)',
+                        border: '0.5px solid rgba(255, 255, 255, 0.1)',
+                        borderRadius: 12,
+                      }}
+                    >
+                      <Panel 
+                        header={
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                            <span style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: 12 }}>📝 风格分析详情</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(prompt);
+                                message.success('Prompt已复制到剪贴板');
+                              }}
+                              style={{
+                                background: 'rgba(10, 132, 255, 0.9)',
+                                border: 'none',
+                                borderRadius: 6,
+                                padding: '4px 10px',
+                                color: 'white',
+                                fontSize: 11,
+                                cursor: 'pointer',
+                                fontWeight: 500,
+                              }}
+                            >
+                              一键复制Prompt
+                            </button>
+                          </div>
+                        }
+                        key="1"
+                      >
+                        <div style={{ background: 'rgba(44, 44, 46, 0.6)', borderRadius: 8, padding: 10, maxHeight: 120, overflowY: 'auto' }}>
+                          <Paragraph style={{ margin: 0, whiteSpace: 'pre-wrap', color: 'rgba(255, 255, 255, 0.7)', fontSize: 11, lineHeight: 1.5 }}>
+                            {prompt}
+                          </Paragraph>
                         </div>
-                        <Image src={url} alt={`生成图片 ${index + 1}`} style={{ width: '100%', borderRadius: 8 }} preview={{ mask: '查看大图' }} />
-                      </div>
-                    </Col>
-                  ))}
-                </Row>
+                      </Panel>
+                    </Collapse>
+                  )}
+
+                  {/* 一键发布快影模板按钮 - 生成结果右下方 */}
+                  <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+                    <button
+                      onClick={handlePublishToKuaiying}
+                      disabled={generatedImageUrls.length === 0}
+                      style={{
+                        background: generatedImageUrls.length > 0 
+                          ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' 
+                          : 'rgba(84, 84, 88, 0.4)',
+                        border: 'none',
+                        borderRadius: 8,
+                        padding: '10px 24px',
+                        color: 'white',
+                        fontSize: 14,
+                        fontWeight: 600,
+                        cursor: generatedImageUrls.length > 0 ? 'pointer' : 'not-allowed',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        boxShadow: generatedImageUrls.length > 0 ? '0 4px 12px rgba(102, 126, 234, 0.4)' : 'none',
+                        transition: 'all 0.3s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (generatedImageUrls.length > 0) {
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          e.currentTarget.style.boxShadow = '0 6px 16px rgba(102, 126, 234, 0.5)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = generatedImageUrls.length > 0 ? '0 4px 12px rgba(102, 126, 234, 0.4)' : 'none';
+                      }}
+                    >
+                      <CloudUploadOutlined style={{ fontSize: 16 }} />
+                      一键发布快影模板
+                    </button>
+                  </div>
+                </>
               )}
             </Card>
           </Col>
         </Row>
-
-        {/* 提示词区域 - 可折叠 */}
-        {prompt && (
-          <Collapse 
-            defaultActiveKey={[]} 
-            style={{
-              marginTop: 16,
-              background: 'rgba(28, 28, 30, 0.6)',
-              backdropFilter: 'blur(20px)',
-              border: '0.5px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: 12,
-            }}
-          >
-            <Panel 
-              header={
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                  <span style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: 13 }}>📝 风格分析详情</span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigator.clipboard.writeText(prompt);
-                      message.success('Prompt已复制到剪贴板');
-                    }}
-                    style={{
-                      background: 'rgba(10, 132, 255, 0.9)',
-                      border: 'none',
-                      borderRadius: 6,
-                      padding: '4px 12px',
-                      color: 'white',
-                      fontSize: 12,
-                      cursor: 'pointer',
-                      fontWeight: 500,
-                    }}
-                  >
-                    一键复制Prompt
-                  </button>
-                </div>
-              }
-              key="1"
-            >
-              <div style={{ background: 'rgba(44, 44, 46, 0.6)', borderRadius: 8, padding: 12, maxHeight: 150, overflowY: 'auto' }}>
-                <Paragraph style={{ margin: 0, whiteSpace: 'pre-wrap', color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, lineHeight: 1.5 }}>
-                  {prompt}
-                </Paragraph>
-              </div>
-            </Panel>
-          </Collapse>
-        )}
       </Content>
+
+      {/* 发布快影模板弹窗 */}
+      <Modal
+        open={publishModalVisible}
+        onCancel={handleClosePublishModal}
+        footer={null}
+        centered
+        width={500}
+        styles={{
+          content: {
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            border: 'none',
+            borderRadius: 16,
+            padding: 0,
+          },
+        }}
+      >
+        <div style={{ padding: 40, textAlign: 'center' }}>
+          {publishStatus === 'uploading' && (
+            <>
+              <CloudUploadOutlined style={{ fontSize: 64, color: 'white', marginBottom: 24 }} />
+              <Title level={3} style={{ color: 'white', marginBottom: 16 }}>
+                正在发布到快影模板
+              </Title>
+              <Progress
+                percent={publishProgress}
+                strokeColor={{
+                  '0%': '#ffffff',
+                  '100%': '#f0f0f0',
+                }}
+                trailColor="rgba(255, 255, 255, 0.2)"
+                style={{ marginBottom: 16 }}
+              />
+              <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 14 }}>
+                {publishProgress < 30 && '正在压缩图片...'}
+                {publishProgress >= 30 && publishProgress < 60 && '正在上传素材...'}
+                {publishProgress >= 60 && publishProgress < 90 && '正在生成模板...'}
+                {publishProgress >= 90 && '即将完成...'}
+              </Text>
+            </>
+          )}
+
+          {publishStatus === 'success' && (
+            <>
+              <CheckCircleOutlined style={{ fontSize: 64, color: '#52c41a', marginBottom: 24 }} />
+              <Title level={3} style={{ color: 'white', marginBottom: 16 }}>
+                发布成功！
+              </Title>
+              <div style={{ background: 'rgba(255, 255, 255, 0.1)', borderRadius: 12, padding: 20, marginBottom: 24 }}>
+                <Text style={{ color: 'white', fontSize: 14, display: 'block', marginBottom: 12 }}>
+                  ✅ 已发布 {generatedImageUrls.length} 张效果图
+                </Text>
+                <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 13, display: 'block', marginBottom: 8 }}>
+                  📱 模板ID: KY{Date.now().toString().slice(-8)}
+                </Text>
+                <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 13, display: 'block' }}>
+                  🎨 分类: AI写真 / 风格迁移
+                </Text>
+              </div>
+              <button
+                onClick={handleClosePublishModal}
+                style={{
+                  background: 'white',
+                  border: 'none',
+                  borderRadius: 8,
+                  padding: '12px 32px',
+                  color: '#667eea',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  width: '100%',
+                }}
+              >
+                完成
+              </button>
+            </>
+          )}
+        </div>
+      </Modal>
 
       <Footer style={{ textAlign: 'center', background: 'transparent', borderTop: '0.5px solid rgba(255, 255, 255, 0.08)', padding: '12px 0' }}>
         <Text style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: 11 }}>
