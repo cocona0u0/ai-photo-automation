@@ -114,7 +114,7 @@ export async function analyzeImage(imagePath) {
           'Authorization': `Bearer ${DASHSCOPE_API_KEY}`,
           'Content-Type': 'application/json'
         },
-        timeout: 60000
+        timeout: 180000  // 3 分钟（Render 美国服务器访问中国API延迟较大）
       }
     );
 

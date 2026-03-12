@@ -107,7 +107,7 @@ export async function generateImage(imagePath, prompt, count = 1) {
             'Authorization': `Bearer ${VOLCENGINE_API_KEY}`,
             'Content-Type': 'application/json'
           },
-          timeout: 120000 // 120秒超时
+          timeout: 240000 // 4 分钟（Render 美国服务器访问中国API延迟较大）
         }
       );
 
