@@ -30,12 +30,15 @@ export const analyzeImage = async (imageFile: File): Promise<AnalyzeResponse> =>
         headers: {
           'Content-Type': 'multipart/form-data'
         },
-        timeout: 60000
+        timeout: 120000  // 2 分钟
       }
     );
 
     return response.data;
   } catch (error: any) {
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      return { success: false, error: '分析超时，服务可能正在唤醒中，请稍后重试' };
+    }
     return {
       success: false,
       error: error.response?.data?.error || error.message || '分析失败'
@@ -62,12 +65,15 @@ export const generateImage = async (
         headers: {
           'Content-Type': 'multipart/form-data'
         },
-        timeout: 120000
+        timeout: 300000  // 5 分钟，足够 Render 唤醒 + AI 生成
       }
     );
 
     return response.data;
   } catch (error: any) {
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      return { success: false, error: '请求超时，服务可能正在唤醒中，请等待 30 秒后重试' };
+    }
     return {
       success: false,
       error: error.response?.data?.error || error.message || '生成失败'
