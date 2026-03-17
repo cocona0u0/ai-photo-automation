@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import axios from 'axios';
-import { analyzeImage } from '../services/qwenService.js';
+import { analyzeImage, analyzeImageByUrl } from '../services/qwenService.js';
 import { generateImage } from '../services/seedreamService.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -132,6 +132,9 @@ router.post('/generate', upload.single('image'), async (req, res) => {
 /**
  * POST /api/analyze-url
  * 通过图片URL分析图片并生成prompt（供 Luigi/Kim 机器人调用）
+ * 
+ * 核心思路：直接把图片URL传给千问API（千问在中国，可直接访问中国CDN）
+ * 而不是让 Render 美国服务器先下载图片（会因无法访问中国CDN而失败）
  */
 router.post('/analyze-url', async (req, res) => {
   try {
@@ -143,20 +146,10 @@ router.post('/analyze-url', async (req, res) => {
       });
     }
 
-    console.log('开始通过URL分析图片:', imageUrl);
+    console.log('开始通过URL分析图片(千问直传):', imageUrl.substring(0, 80) + '...');
 
-    // 下载图片到临时文件
-    const response = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 30000 });
-    const ext = imageUrl.split('?')[0].split('.').pop()?.toLowerCase() || 'jpg';
-    const allowedExts = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-    const safeExt = allowedExts.includes(ext) ? ext : 'jpg';
-    const tmpPath = path.join(__dirname, '../../uploads', `tmp-${Date.now()}.${safeExt}`);
-    await fs.promises.writeFile(tmpPath, response.data);
-
-    const result = await analyzeImage(tmpPath);
-
-    // 清理临时文件
-    fs.promises.unlink(tmpPath).catch(() => {});
+    // 直接把 URL 传给千问 API，让千问自己去下载（千问在中国，可访问中国CDN）
+    const result = await analyzeImageByUrl(imageUrl);
 
     if (!result.success) {
       return res.status(500).json({
@@ -165,7 +158,7 @@ router.post('/analyze-url', async (req, res) => {
       });
     }
 
-    console.log('图片分析成功(URL方式),prompt长度:', result.prompt.length);
+    console.log('图片分析成功(URL直传千问),prompt长度:', result.prompt.length);
     res.json({
       success: true,
       prompt: result.prompt,
@@ -184,6 +177,10 @@ router.post('/analyze-url', async (req, res) => {
 /**
  * POST /api/generate-url
  * 通过图片URL生成新图片（供 Luigi/Kim 机器人调用）
+ * 
+ * 注意：Seedream API 不支持直传 URL，需要先下载图片转 base64
+ * 如果图片来自中国 CDN（如快手 CDN），Render 美国服务器可能无法下载
+ * 此时会返回明确的错误提示，建议把后端迁移到国内服务器
  */
 router.post('/generate-url', async (req, res) => {
   try {
@@ -195,15 +192,31 @@ router.post('/generate-url', async (req, res) => {
       return res.status(400).json({ success: false, error: '请提供prompt参数' });
     }
 
-    console.log('开始通过URL生成图片, 参考图:', imageUrl);
+    console.log('开始通过URL生成图片, 参考图:', imageUrl.substring(0, 80) + '...');
 
-    // 下载图片到临时文件
-    const imgResponse = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 30000 });
-    const ext = imageUrl.split('?')[0].split('.').pop()?.toLowerCase() || 'jpg';
-    const allowedExts = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-    const safeExt = allowedExts.includes(ext) ? ext : 'jpg';
-    const tmpPath = path.join(__dirname, '../../uploads', `tmp-${Date.now()}.${safeExt}`);
-    await fs.promises.writeFile(tmpPath, imgResponse.data);
+    // 下载图片到临时文件（Seedream API 需要 base64，不支持直传 URL）
+    let tmpPath;
+    try {
+      const imgResponse = await axios.get(imageUrl, {
+        responseType: 'arraybuffer',
+        timeout: 60000, // 给中国CDN更长的时间
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; AI-Photo-Bot/1.0)'
+        }
+      });
+      const ext = imageUrl.split('?')[0].split('.').pop()?.toLowerCase() || 'jpg';
+      const allowedExts = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+      const safeExt = allowedExts.includes(ext) ? ext : 'jpg';
+      tmpPath = path.join(__dirname, '../../uploads', `tmp-${Date.now()}.${safeExt}`);
+      await fs.promises.writeFile(tmpPath, imgResponse.data);
+      console.log('用户图片下载成功:', tmpPath);
+    } catch (downloadErr) {
+      console.error('下载用户图片失败:', downloadErr.message);
+      return res.status(502).json({
+        success: false,
+        error: `无法下载用户图片（可能是中国CDN限制）：${downloadErr.message}。建议将后端迁移到国内服务器。`
+      });
+    }
 
     const result = await generateImage(tmpPath, prompt, 1);
 

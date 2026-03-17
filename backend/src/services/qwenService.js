@@ -33,34 +33,14 @@ function getMimeType(filename) {
 }
 
 /**
- * 调用千问vl-flash API分析图片
- * @param {string} imagePath - 图片文件路径
- * @returns {Promise<{success: boolean, prompt: string, tokens: number, error?: string}>}
+ * 调用千问 API 构建图片分析请求（通用内部方法）
  */
-export async function analyzeImage(imagePath) {
-  try {
-    if (!DASHSCOPE_API_KEY) {
-      throw new Error('DASHSCOPE_API_KEY未配置');
-    }
+async function callQwenWithImage(imageSource) {
+  if (!DASHSCOPE_API_KEY) {
+    throw new Error('DASHSCOPE_API_KEY未配置');
+  }
 
-    // 将图片转为base64
-    const imageBase64 = await imageToBase64(imagePath);
-
-    // 调用千问API - 全面分析图片内容和风格
-    const response = await axios.post(
-      `${QWEN_API_BASE}/chat/completions`,
-      {
-        model: 'qwen3.5-flash',
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'image_url',
-              image_url: { url: imageBase64 }
-            },
-            {
-              type: 'text',
-              text: `请详细分析这张图片，生成一段完整的图像描述，用于指导AI图像生成。描述需要包含以下两个方面：
+  const analysisPromptText = `请详细分析这张图片，生成一段完整的图像描述，用于指导AI图像生成。描述需要包含以下两个方面：
 
 **第一部分：画面内容描述（30%）**
 - 场景与主体：描述画面中的主要场景、人物或物体
@@ -104,31 +84,54 @@ export async function analyzeImage(imagePath) {
 2. 然后详细描述视觉风格特征，使用专业的摄影和后期术语
 3. 描述要具体、量化，能够让AI准确理解和复现这种风格
 4. 重点强调色调、光线、对比度、滤镜等可以迁移的视觉效果
-5. 用中文输出，准确、详尽、专业，适合直接用于AI图像生成`
-            }
-          ]
-        }]
+5. 用中文输出，准确、详尽、专业，适合直接用于AI图像生成`;
+
+  const response = await axios.post(
+    `${QWEN_API_BASE}/chat/completions`,
+    {
+      model: 'qwen3.5-flash',
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'image_url',
+            image_url: { url: imageSource }
+          },
+          {
+            type: 'text',
+            text: analysisPromptText
+          }
+        ]
+      }]
+    },
+    {
+      headers: {
+        'Authorization': `Bearer ${DASHSCOPE_API_KEY}`,
+        'Content-Type': 'application/json'
       },
-      {
-        headers: {
-          'Authorization': `Bearer ${DASHSCOPE_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        timeout: 180000  // 3 分钟（Render 美国服务器访问中国API延迟较大）
-      }
-    );
+      timeout: 180000
+    }
+  );
 
-    const prompt = response.data.choices[0].message.content;
-    const tokens = response.data.usage?.total_tokens || 0;
+  const prompt = response.data.choices[0].message.content;
+  const tokens = response.data.usage?.total_tokens || 0;
+  return { prompt, tokens };
+}
 
-    console.log('千问API分析成功');
-    console.log('生成的完整描述（内容+风格）:', prompt.substring(0, 200) + '...');
+/**
+ * 调用千问vl-flash API分析图片（传文件路径，转 base64）
+ * @param {string} imagePath - 图片文件路径
+ * @returns {Promise<{success: boolean, prompt: string, tokens: number, error?: string}>}
+ */
+export async function analyzeImage(imagePath) {
+  try {
+    // 将图片转为base64
+    const imageBase64 = await imageToBase64(imagePath);
+    const { prompt, tokens } = await callQwenWithImage(imageBase64);
 
-    return {
-      success: true,
-      prompt,
-      tokens
-    };
+    console.log('千问API分析成功(base64)');
+    console.log('生成的完整描述:', prompt.substring(0, 200) + '...');
+    return { success: true, prompt, tokens };
 
   } catch (error) {
     console.error('千问API调用失败:', error.message);
@@ -140,3 +143,36 @@ export async function analyzeImage(imagePath) {
     };
   }
 }
+
+/**
+ * 调用千问vl-flash API分析图片（直接传 URL，不经过本服务器下载）
+ * 适用于千问可以直接访问的 URL（如中国 CDN、公网图片等）
+ * @param {string} imageUrl - 可被千问直接访问的图片 URL
+ * @returns {Promise<{success: boolean, prompt: string, tokens: number, error?: string}>}
+ */
+export async function analyzeImageByUrl(imageUrl) {
+  try {
+    if (!DASHSCOPE_API_KEY) {
+      throw new Error('DASHSCOPE_API_KEY未配置');
+    }
+
+    console.log('千问直接通过URL分析图片:', imageUrl.substring(0, 80) + '...');
+    const { prompt, tokens } = await callQwenWithImage(imageUrl);
+
+    console.log('千问API分析成功(URL直传)');
+    console.log('生成的完整描述:', prompt.substring(0, 200) + '...');
+    return { success: true, prompt, tokens };
+
+  } catch (error) {
+    console.error('千问API(URL)调用失败:', error.message);
+    return {
+      success: false,
+      prompt: '',
+      tokens: 0,
+      error: error.response?.data?.message || error.message
+    };
+  }
+}
+
+
+
