@@ -33,20 +33,40 @@ function getMimeType(filename) {
 }
 
 /**
- * 调用doubao-seedream API生成图片
+ * 调用doubao-seedream API生成图片（传文件路径，转 base64）
  * @param {string} imagePath - 参考图片文件路径
  * @param {string} prompt - 图像描述prompt
  * @param {number} count - 生成图片数量，默认1张
  * @returns {Promise<{success: boolean, imageUrls: string[], error?: string}>}
  */
 export async function generateImage(imagePath, prompt, count = 1) {
+  const imageBase64 = await imageToBase64(imagePath);
+  return generateImageWithSource(imageBase64, prompt, count);
+}
+
+/**
+ * 调用doubao-seedream API生成图片（直接传 URL，不经过本服务器下载）
+ * Seedream 4.5 的 image 字段同时支持 URL 和 base64
+ * @param {string} imageUrl - 可被 Seedream 直接访问的图片 URL（中国CDN）
+ * @param {string} prompt - 图像描述prompt
+ * @param {number} count - 生成图片数量，默认1张
+ * @returns {Promise<{success: boolean, imageUrls: string[], error?: string}>}
+ */
+export async function generateImageByUrl(imageUrl, prompt, count = 1) {
+  return generateImageWithSource(imageUrl, prompt, count);
+}
+
+/**
+ * 内部通用方法：调用doubao-seedream API生成图片
+ * @param {string} imageSource - 图片来源，可以是 base64 data URI 或 URL
+ * @param {string} prompt - 图像描述prompt
+ * @param {number} count - 生成图片数量
+ */
+async function generateImageWithSource(imageSource, prompt, count = 1) {
   try {
     if (!VOLCENGINE_API_KEY) {
       throw new Error('VOLCENGINE_API_KEY未配置');
     }
-
-    // 将图片转为base64
-    const imageBase64 = await imageToBase64(imagePath);
 
     // 在prompt基础上添加优化指令，强调保持原生感和真实质感
     const enhancedPrompt = `${prompt}
@@ -91,7 +111,7 @@ export async function generateImage(imagePath, prompt, count = 1) {
       const requestData = {
         model: 'doubao-seedream-4-5-251128',
         prompt: enhancedPrompt,
-        image: imageBase64,
+        image: imageSource,  // 支持 base64 data URI 或 URL
         sequential_image_generation: 'disabled', // 使用官方支持的参数值
         response_format: 'url',
         size: '2K',

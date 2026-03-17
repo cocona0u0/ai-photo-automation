@@ -5,7 +5,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import axios from 'axios';
 import { analyzeImage, analyzeImageByUrl } from '../services/qwenService.js';
-import { generateImage } from '../services/seedreamService.js';
+import { generateImage, generateImageByUrl } from '../services/seedreamService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -177,10 +177,10 @@ router.post('/analyze-url', async (req, res) => {
 /**
  * POST /api/generate-url
  * 通过图片URL生成新图片（供 Luigi/Kim 机器人调用）
- * 
- * 注意：Seedream API 不支持直传 URL，需要先下载图片转 base64
- * 如果图片来自中国 CDN（如快手 CDN），Render 美国服务器可能无法下载
- * 此时会返回明确的错误提示，建议把后端迁移到国内服务器
+ *
+ * Seedream 4.5 的 image 字段同时支持 URL 和 base64，
+ * 直接把 Kim CDN 的 URL 传给 Seedream（Seedream 在中国，可访问中国CDN）
+ * 不再需要让 Render 美国服务器先下载图片
  */
 router.post('/generate-url', async (req, res) => {
   try {
@@ -192,36 +192,10 @@ router.post('/generate-url', async (req, res) => {
       return res.status(400).json({ success: false, error: '请提供prompt参数' });
     }
 
-    console.log('开始通过URL生成图片, 参考图:', imageUrl.substring(0, 80) + '...');
+    console.log('开始通过URL生成图片(Seedream直传):', imageUrl.substring(0, 80) + '...');
 
-    // 下载图片到临时文件（Seedream API 需要 base64，不支持直传 URL）
-    let tmpPath;
-    try {
-      const imgResponse = await axios.get(imageUrl, {
-        responseType: 'arraybuffer',
-        timeout: 60000, // 给中国CDN更长的时间
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; AI-Photo-Bot/1.0)'
-        }
-      });
-      const ext = imageUrl.split('?')[0].split('.').pop()?.toLowerCase() || 'jpg';
-      const allowedExts = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-      const safeExt = allowedExts.includes(ext) ? ext : 'jpg';
-      tmpPath = path.join(__dirname, '../../uploads', `tmp-${Date.now()}.${safeExt}`);
-      await fs.promises.writeFile(tmpPath, imgResponse.data);
-      console.log('用户图片下载成功:', tmpPath);
-    } catch (downloadErr) {
-      console.error('下载用户图片失败:', downloadErr.message);
-      return res.status(502).json({
-        success: false,
-        error: `无法下载用户图片（可能是中国CDN限制）：${downloadErr.message}。建议将后端迁移到国内服务器。`
-      });
-    }
-
-    const result = await generateImage(tmpPath, prompt, 1);
-
-    // 清理临时文件
-    fs.promises.unlink(tmpPath).catch(() => {});
+    // 直接把 URL 传给 Seedream（Seedream 在中国，可访问中国CDN，无需 Render 下载）
+    const result = await generateImageByUrl(imageUrl, prompt, 1);
 
     if (!result.success) {
       return res.status(500).json({
@@ -230,7 +204,7 @@ router.post('/generate-url', async (req, res) => {
       });
     }
 
-    console.log('图片生成成功(URL方式):', result.imageUrls[0]);
+    console.log('图片生成成功(URL直传Seedream):', result.imageUrls[0]);
     res.json({
       success: true,
       imageUrl: result.imageUrls[0],
