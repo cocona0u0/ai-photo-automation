@@ -38,8 +38,9 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       }
 
       setFileList([file as any]);
-      onFileChange(file);
-      return false; // 阻止自动上传
+      // 确保传出去的是原始的 File 对象（RcFile 继承自 File，直接可用）
+      onFileChange(file as unknown as File);
+      return false; // 阻止 Ant Design 自动上传
     },
     onRemove: () => {
       setFileList([]);

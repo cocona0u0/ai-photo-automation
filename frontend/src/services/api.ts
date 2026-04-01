@@ -22,15 +22,19 @@ export const analyzeImage = async (imageFile: File): Promise<AnalyzeResponse> =>
   try {
     const formData = new FormData();
     formData.append('image', imageFile);
+    // 调试日志
+    console.log('[analyzeImage] 文件信息:', {
+      name: imageFile.name,
+      size: imageFile.size,
+      type: imageFile.type,
+      isFile: imageFile instanceof File
+    });
 
     const response = await axios.post<AnalyzeResponse>(
       `${API_BASE_URL}/analyze`,
       formData,
       {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        },
-        timeout: 120000  // 2 分钟
+        timeout: 120000  // 2 分钟（不要手动设置 Content-Type，axios 会自动加 boundary）
       }
     );
 
@@ -62,10 +66,7 @@ export const generateImage = async (
       `${API_BASE_URL}/generate`,
       formData,
       {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        },
-        timeout: 300000  // 5 分钟，足够 Render 唤醒 + AI 生成
+        timeout: 300000  // 5 分钟（不要手动设置 Content-Type，axios 会自动加 boundary）
       }
     );
 

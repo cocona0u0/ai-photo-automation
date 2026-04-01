@@ -66,7 +66,7 @@ const App: React.FC = () => {
     }, 300);
   };
 
-  // 处理参考图上传
+  // 处理参考图上传 —— 上传后立即触发分析（不等 state 更新）
   const handleRefImageChange = (file: File | null) => {
     setRefImageFile(file);
     setPrompt('');
@@ -78,12 +78,14 @@ const App: React.FC = () => {
         setRefPreviewUrl(e.target?.result as string);
       };
       reader.readAsDataURL(file);
+      // 立即用拿到的 file 触发分析，不依赖 state 更新
+      handleAnalyze(file);
     } else {
       setRefPreviewUrl('');
     }
   };
 
-  // 处理用户图上传
+  // 处理用户图上传 —— 立即触发生成
   const handleUserImageChange = (file: File | null) => {
     setUserImageFile(file);
     setGeneratedImageUrls([]);
@@ -95,38 +97,50 @@ const App: React.FC = () => {
         setUserPreviewUrl(e.target?.result as string);
       };
       reader.readAsDataURL(file);
+      // 如果已经有 prompt，立即触发生成
+      if (prompt) {
+        handleGenerate(file, prompt);
+      }
     } else {
       setUserPreviewUrl('');
     }
   };
 
-  // 自动分析参考图
+  // 自动分析参考图（通过 ref 拿最新值，避免 state 异步闭包问题）
+  const refImageFileRef = React.useRef<File | null>(null);
+  React.useEffect(() => {
+    refImageFileRef.current = refImageFile;
+  }, [refImageFile]);
+
   React.useEffect(() => {
     if (refImageFile && !analyzing && !prompt) {
-      handleAnalyze();
+      handleAnalyze(refImageFile);
     }
   }, [refImageFile]);
 
-  // 自动生成图片
+  // 自动生成图片（prompt 完成后，如果用户图已上传则自动触发）
   React.useEffect(() => {
     if (userImageFile && prompt && !generating && generatedImageUrls.length === 0) {
-      handleGenerate();
+      handleGenerate(userImageFile, prompt);
     }
-  }, [userImageFile, prompt]);
+  }, [prompt]);
 
-  // 分析参考图
-  const handleAnalyze = async () => {
-    if (!refImageFile) {
+  // 分析参考图（接收文件参数，避免依赖 state 时序）
+  const handleAnalyze = async (fileToAnalyze?: File) => {
+    const targetFile = fileToAnalyze || refImageFile;
+    if (!targetFile) {
       message.warning('请先上传参考图');
       return;
     }
+
+    console.log('[handleAnalyze] 开始分析，文件:', targetFile.name, targetFile.size, 'bytes', targetFile instanceof File);
 
     setAnalyzing(true);
     setAnalyzeError('');
     setPrompt('');
 
     try {
-      const result = await analyzeImage(refImageFile);
+      const result = await analyzeImage(targetFile);
       
       if (result.success && result.prompt) {
         setPrompt(result.prompt);
@@ -145,18 +159,21 @@ const App: React.FC = () => {
     }
   };
 
-  // 生成图片
-  const handleGenerate = async () => {
-    if (!userImageFile || !prompt) {
+  // 生成图片（接收参数，避免 state 时序问题）
+  const handleGenerate = async (fileToUse?: File, promptToUse?: string) => {
+    const targetFile = fileToUse || userImageFile;
+    const targetPrompt = promptToUse || prompt;
+    if (!targetFile || !targetPrompt) {
       message.warning('请先完成风格分析并上传用户图');
       return;
     }
 
+    console.log('[handleGenerate] 开始生成，文件:', targetFile.name, '| prompt长度:', targetPrompt.length);
     setGenerating(true);
     setGenerateError('');
 
     try {
-      const result = await generateImage(userImageFile, prompt);
+      const result = await generateImage(targetFile, targetPrompt);
       
       if (result.success && result.imageUrls && result.imageUrls.length > 0) {
         setGeneratedImageUrls(result.imageUrls);
